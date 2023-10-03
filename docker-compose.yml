@@ -5,6 +5,7 @@ services:
     build: app
     volumes:
       - ./content.md:/app/content.md:ro
+      - ./saves:/app/saves
     ports:
       - 80:8000
     restart: always

@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Simple Web App</title>
+</head>
+
+<body>
+    <div style="width: 100%; text-align: left; padding: 20px;">
+        <h1>Saves</h1>
+    </div>
+
+    <div style="width: 100%; display: flex; justify-content: space-between; padding: 20px;">
+        <div style="padding: 10px;">
+            <h2>Saved Files:</h2>
+            <ul id="fileList" style="list-style-type: disc;">
+                {% for file in saved_files %}
+                <li>{{ file }} <button onclick="viewFile('{{ file }}')">View</button> <button
+                        onclick="deleteFile('{{ file }}')">Delete</button></li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <div style="width: 80%;">
+            <label for="filename">Filename:</label><br>
+            <textarea id="filename" rows="1" cols="18"></textarea><br><br>
+            <label for="filecontent">File Content:</label><br>
+            <textarea id="filecontent" rows="40" cols="120"></textarea><br><br>
+            <button onclick="clearFields()">Clear</button>
+            <button onclick="saveFile()">Save</button>
+            <span id="validation_message" style="color: red;"></span>
+        </div>
+
+    </div>
+
+    <div id="popup"
+        style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: #fff; padding: 20px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);">
+        <p>This is a popup message.</p>
+    </div>
+
+
+    <script>
+        function showPopup(message, timeout) {
+            var popup = document.getElementById('popup');
+            popup.innerHTML = '<p>' + message + '</p>';
+            popup.style.display = 'block';
+
+            setTimeout(function () {
+                popup.style.display = 'none';
+            }, timeout);
+        }
+
+        function clearFields() {
+            document.getElementById('filecontent').value = '';
+            document.getElementById('filename').value = '';
+            document.getElementById('validation_message').textContent = '';
+
+        }
+        function saveFile() {
+            var filecontent = document.getElementById('filecontent').value;
+            var validationMessage = document.getElementById('validation_message');
+
+            if (filecontent.trim() === '') {
+                validationMessage.textContent = 'Input is required.';
+                return;
+            }
+            validationMessage.textContent = '';
+
+            var filename = document.getElementById('filename').value;
+
+            let responseStatus;
+            fetch('/saves/' + filename, {
+                method: 'POST',
+                body: 'content=' + encodeURIComponent(filecontent),
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                }
+            })
+                .then(response => {
+                    responseStatus = response.status;
+
+                    if (!response.ok) {
+                        console.error('Request failed with status:', responseStatus);
+                    }
+
+                    return response.json();
+                })
+                .then(data => {
+                    // alert(data.message);
+                    showPopup(data.message, 3000);
+                    if (responseStatus === 201) {
+                        addToFileList(data.filename);
+                    }
+                    document.getElementById('filename').value = data.filename;
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('An error occurred.');
+                });
+        }
+
+        // JavaScript function to view and edit a file's content
+        function viewFile(filename) {
+            fetch(`/view/${filename}`)
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('filename').value = data.filename;
+                    document.getElementById('filecontent').value = data.content;
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+        }
+
+        function updateContent() {
+            var updatedContent = document.getElementById('filecontent').value;
+            var validationMessage = document.getElementById('validation_message');
+
+            if (updatedContent.trim() === '') {
+                validationMessage.textContent = 'Content cannot be empty.';
+                return;
+            }
+
+            // If content is not empty, proceed with saving
+            // You can use an API endpoint to save the updated content here
+            alert('Updated content saved.'); // Replace with actual saving logic
+        }
+
+        // JavaScript function to delete a file
+        function deleteFile(filename) {
+            if (confirm(`Are you sure you want to delete ${filename}?`)) {
+                fetch(`/saves/${filename}`, { method: 'DELETE' })
+                    .then(response => {
+                        if (response.ok) {
+                            // alert(`${filename} deleted successfully!`);
+                            // window.location.reload();
+                            reloadFileList();
+                        } else {
+                            alert(`Error deleting ${filename}.`);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert(`Error deleting ${filename}.`);
+                    });
+            }
+        }
+
+        function addToFileList(filename) {
+            console.info('addtofilelist fn', filename);
+            var fileList = document.getElementById('fileList');
+
+            // Create list item
+            var listItem = document.createElement('li');
+
+            // Add filename
+            listItem.appendChild(document.createTextNode(filename));
+            listItem.appendChild(document.createTextNode(' '));
+
+            // Add View button
+            var viewButton = document.createElement('button');
+            viewButton.textContent = 'View';
+            listItem.appendChild(viewButton);
+            listItem.appendChild(document.createTextNode(' '));
+
+            // Add Delete button
+            var deleteButton = document.createElement('button');
+            deleteButton.textContent = 'Delete';
+            listItem.appendChild(deleteButton);
+
+            // Add list item to the list
+            fileList.appendChild(listItem);
+
+            // Attach event handlers for View and Delete buttons if needed
+            viewButton.onclick = function () {
+                viewFile(filename);
+            };
+
+            deleteButton.onclick = function () {
+                deleteFile(filename);
+            };
+        }
+
+        function reloadFileList() {
+            var fileList = document.getElementById('fileList');
+
+            fileList.innerHTML = '';
+
+            fetch('/filenames')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Add the updated list of filenames to the fileList
+                    data.filenames.forEach(filename => {
+                        console.info('fn', filename);
+                        addToFileList(filename);
+                    });
+                })
+                .catch(error => {
+                    console.error('Fetch error:', error);
+                });
+        }
+    </script>
+</body>
+
+</html>
