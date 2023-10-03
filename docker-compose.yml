@@ -1,0 +1,10 @@
+version: '3.8'
+
+services:
+  app:
+    build: app
+    volumes:
+      - ./content.md:/app/content.md:ro
+    ports:
+      - 80:8000
+    restart: always
